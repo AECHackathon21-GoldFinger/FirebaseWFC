@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30717.126
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FirebaseWFC", "FirebaseWFC\FirebaseWFC.csproj", "{F356D859-C4D6-453F-B423-6A4C57FD6647}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F356D859-C4D6-453F-B423-6A4C57FD6647}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F356D859-C4D6-453F-B423-6A4C57FD6647}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F356D859-C4D6-453F-B423-6A4C57FD6647}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F356D859-C4D6-453F-B423-6A4C57FD6647}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2ADB90ED-5047-41B0-B911-13BDD73CD4A2}
+	EndGlobalSection
+EndGlobal
