@@ -1,17 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Net;
+using System.Drawing;
 using FireSharp.Interfaces;
-using FireSharp.Response;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Rhino.Geometry;
 
 namespace FirebaseWFC
 {
-    public class GHFirebaseSubscribe : GH_Component
+    public class GHGetScore : GH_Component
     {
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -20,8 +19,8 @@ namespace FirebaseWFC
         /// Subcategory the panel. If you use non-existing tab or panel names, 
         /// new tabs/panels will automatically be created.
         /// </summary>
-        public GHFirebaseSubscribe()
-            : base("Subscribe", "Subscribe",
+        public GHGetScore()
+            : base("Get Score", "Get Score",
                 "Description",
                 "FirebaseWFC", "Connect")
         {
@@ -34,7 +33,7 @@ namespace FirebaseWFC
         {
             pManager.AddBooleanParameter("Subscribe", "Subscribe", "Firebase Subscribe",
                 GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "Path", "Path", GH_ParamAccess.item, "slots");
+            pManager.AddTextParameter("Path", "Path", "Path", GH_ParamAccess.item, "user");
         }
 
         /// <summary>
@@ -43,7 +42,7 @@ namespace FirebaseWFC
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Status", "Status", "Status", GH_ParamAccess.item);
-            pManager.AddPointParameter("Slots", "Slots", "Slots", GH_ParamAccess.list);
+            pManager.AddTextParameter("Users", "Users", "Users", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -54,15 +53,15 @@ namespace FirebaseWFC
         protected override async void SolveInstance(IGH_DataAccess DA)
         {
             var subscribe = false;
-            var path = "slots";
-            
+            var path = "users";
+
             if (!DA.GetData(0, ref subscribe)) return;
             DA.GetData(1, ref path);
 
             var config = Environment.GetEnvironmentVariable("firebaseConfig");
 
             _client = Firebase.GetOrCreateClient(_client, config);
-            
+
             if (_client != null && subscribe)
             {
                 try
@@ -73,31 +72,40 @@ namespace FirebaseWFC
                     var firebaseResponse = await _client.GetAsync(path);
                     if (firebaseResponse.StatusCode == HttpStatusCode.OK)
                     {
-                        _slots = ParseFirebaseSlots(firebaseResponse.Body);
+                        _users = ParseFirebaseUsers(firebaseResponse.Body);
                     }
-                    
                 }
                 catch (Exception error)
                 {
                     Console.WriteLine(error.Message);
                 }
-
             }
             else if (!subscribe)
             {
                 //FirebaseStream.Dispose();
             }
-            
-            DA.SetDataList(1, _slots);
+
+            DA.SetDataList(1, _users);
         }
 
-        private static List<Point3d> ParseFirebaseSlots(string data)
+        private static string ParseFirebaseUsers(string data)
         {
-            var jsonData = JsonConvert.DeserializeObject<List<int[]>>(data);
+            var jsonData = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(data);
+            var _data = "USERS:";
+            foreach (var key in jsonData.Keys)
+            {
+                _data += $"\n{key}:";
+                foreach (var dataKey in jsonData[key].Keys)
+                {
+                    _data += $"\n  {dataKey}: {jsonData[key][dataKey]}";
+                }
 
-            return jsonData.Select(element => new Point3d { X = element[0], Y = element[1], Z = element[2] }).ToList();
+                _data += "\n";
+            }
+
+            return _data;
         }
-        
+
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
         /// Icons need to be 24x24 pixels.
@@ -111,10 +119,11 @@ namespace FirebaseWFC
         /// It is vital this Guid doesn't change otherwise old ghx files 
         /// that use the old ID will partially fail during loading.
         /// </summary>
-        public override Guid ComponentGuid => new Guid("cbaf115b-22cd-474a-880c-8a12f6baa19b");
+        public override Guid ComponentGuid => new Guid("5830874e-cb14-4bd7-bc59-71f8876f8824");
 
         private IFirebaseClient _client = null;
-        private List<Point3d> _slots;
+
+        private string _users;
         //private EventStreamResponse FirebaseStream;
     }
 }

@@ -1,17 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Net;
 using FireSharp.Interfaces;
-using FireSharp.Response;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Rhino.Geometry;
 
 namespace FirebaseWFC
 {
-    public class GHFirebaseSubscribe : GH_Component
+ public class GHVueSubscribe : GH_Component
     {
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -20,8 +19,8 @@ namespace FirebaseWFC
         /// Subcategory the panel. If you use non-existing tab or panel names, 
         /// new tabs/panels will automatically be created.
         /// </summary>
-        public GHFirebaseSubscribe()
-            : base("Subscribe", "Subscribe",
+        public GHVueSubscribe()
+            : base("Get Vue", "Get Vue",
                 "Description",
                 "FirebaseWFC", "Connect")
         {
@@ -34,7 +33,7 @@ namespace FirebaseWFC
         {
             pManager.AddBooleanParameter("Subscribe", "Subscribe", "Firebase Subscribe",
                 GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "Path", "Path", GH_ParamAccess.item, "slots");
+            pManager.AddTextParameter("Path", "Path", "Path", GH_ParamAccess.item, "cubes");
         }
 
         /// <summary>
@@ -42,8 +41,7 @@ namespace FirebaseWFC
         /// </summary>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Status", "Status", "Status", GH_ParamAccess.item);
-            pManager.AddPointParameter("Slots", "Slots", "Slots", GH_ParamAccess.list);
+            pManager.AddBoxParameter("Cubes", "Cubes", "Status", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -54,15 +52,15 @@ namespace FirebaseWFC
         protected override async void SolveInstance(IGH_DataAccess DA)
         {
             var subscribe = false;
-            var path = "slots";
-            
+            var path = "cubes";
+
             if (!DA.GetData(0, ref subscribe)) return;
             DA.GetData(1, ref path);
 
             var config = Environment.GetEnvironmentVariable("firebaseConfig");
 
             _client = Firebase.GetOrCreateClient(_client, config);
-            
+
             if (_client != null && subscribe)
             {
                 try
@@ -70,34 +68,42 @@ namespace FirebaseWFC
                     //FirebaseStream = await Client.OnAsync(path, (sender, args, context) => {
                     //    Slots = ParseFirebaseSlots(args.Data);
                     //});
+                    
                     var firebaseResponse = await _client.GetAsync(path);
                     if (firebaseResponse.StatusCode == HttpStatusCode.OK)
                     {
-                        _slots = ParseFirebaseSlots(firebaseResponse.Body);
+                        _cubes = ParseFirebaseCubes(firebaseResponse.Body);
                     }
-                    
                 }
                 catch (Exception error)
                 {
                     Console.WriteLine(error.Message);
                 }
-
             }
             else if (!subscribe)
             {
                 //FirebaseStream.Dispose();
             }
-            
-            DA.SetDataList(1, _slots);
+
+            DA.SetDataList(0, _cubes);
         }
 
-        private static List<Point3d> ParseFirebaseSlots(string data)
+        private static List<Box> ParseFirebaseCubes(string data)
         {
-            var jsonData = JsonConvert.DeserializeObject<List<int[]>>(data);
+            var cubes = new List<Box>();
+            var jsonData = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, object>>>(data);
+            foreach (var key in jsonData.Keys)
+            {
+                var _data = jsonData[key]["position"] as JObject;
+                var point = _data.ToObject<Dictionary<string, int>>();
+                var plane = new Plane(
+                    new Point3d(point["x"], point["z"], point["y"]), new Vector3d(0.0, 0.0, 1.0));
+                cubes.Add(new Box(plane, new List<Point3d>{new Point3d(point["x"] + 25, point["z"] + 25, point["y"] + 25), new Point3d(point["x"] - 25, point["z"] - 25, point["y"] - 25)}));
+            }
 
-            return jsonData.Select(element => new Point3d { X = element[0], Y = element[1], Z = element[2] }).ToList();
+            return cubes;
         }
-        
+
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
         /// Icons need to be 24x24 pixels.
@@ -111,10 +117,11 @@ namespace FirebaseWFC
         /// It is vital this Guid doesn't change otherwise old ghx files 
         /// that use the old ID will partially fail during loading.
         /// </summary>
-        public override Guid ComponentGuid => new Guid("cbaf115b-22cd-474a-880c-8a12f6baa19b");
+        public override Guid ComponentGuid => new Guid("13254b70-5786-4593-98fa-a6f1279ab336");
 
         private IFirebaseClient _client = null;
-        private List<Point3d> _slots;
+
+        private List<Box> _cubes;
         //private EventStreamResponse FirebaseStream;
     }
 }

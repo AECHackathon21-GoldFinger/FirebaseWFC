@@ -2,16 +2,13 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Net;
 using FireSharp.Interfaces;
-using FireSharp.Response;
 using Grasshopper.Kernel;
-using Newtonsoft.Json;
 using Rhino.Geometry;
 
 namespace FirebaseWFC
 {
-    public class GHFirebaseSubscribe : GH_Component
+public class GHVuePush : GH_Component
     {
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -20,8 +17,8 @@ namespace FirebaseWFC
         /// Subcategory the panel. If you use non-existing tab or panel names, 
         /// new tabs/panels will automatically be created.
         /// </summary>
-        public GHFirebaseSubscribe()
-            : base("Subscribe", "Subscribe",
+        public GHVuePush()
+            : base("Push Vue", "Push Vue",
                 "Description",
                 "FirebaseWFC", "Connect")
         {
@@ -32,9 +29,9 @@ namespace FirebaseWFC
         /// </summary>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Subscribe", "Subscribe", "Firebase Subscribe",
+            pManager.AddBooleanParameter("Push", "Push", "Firebase Push",
                 GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "Path", "Path", GH_ParamAccess.item, "slots");
+            pManager.AddPointParameter("CenterPoints", "CenterPoints", "Data", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -42,8 +39,7 @@ namespace FirebaseWFC
         /// </summary>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Status", "Status", "Status", GH_ParamAccess.item);
-            pManager.AddPointParameter("Slots", "Slots", "Slots", GH_ParamAccess.list);
+            pManager.AddTextParameter("Output", "Output", "Output", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -53,29 +49,23 @@ namespace FirebaseWFC
         /// to store data in output parameters.</param>
         protected override async void SolveInstance(IGH_DataAccess DA)
         {
-            var subscribe = false;
-            var path = "slots";
+            var push = false;
+            var data = new List<Point3d>();
             
-            if (!DA.GetData(0, ref subscribe)) return;
-            DA.GetData(1, ref path);
+            if (!DA.GetData(0, ref push)) return;
+            if (!DA.GetDataList(1, data)) return;
 
             var config = Environment.GetEnvironmentVariable("firebaseConfig");
 
             _client = Firebase.GetOrCreateClient(_client, config);
             
-            if (_client != null && subscribe)
+            if (_client != null && push)
             {
                 try
                 {
-                    //FirebaseStream = await Client.OnAsync(path, (sender, args, context) => {
-                    //    Slots = ParseFirebaseSlots(args.Data);
-                    //});
-                    var firebaseResponse = await _client.GetAsync(path);
-                    if (firebaseResponse.StatusCode == HttpStatusCode.OK)
-                    {
-                        _slots = ParseFirebaseSlots(firebaseResponse.Body);
-                    }
-                    
+                    var points = ParsePointsToVue(data);
+                    var firebaseResponse = await _client.SetAsync("cubes", points);
+                    DA.SetData(0, firebaseResponse.Body);
                 }
                 catch (Exception error)
                 {
@@ -83,21 +73,34 @@ namespace FirebaseWFC
                 }
 
             }
-            else if (!subscribe)
-            {
-                //FirebaseStream.Dispose();
-            }
-            
-            DA.SetDataList(1, _slots);
         }
 
-        private static List<Point3d> ParseFirebaseSlots(string data)
+        private static List<Dictionary<string, Dictionary<string, double>>> ParsePointsToVue(List<Point3d> points)
         {
-            var jsonData = JsonConvert.DeserializeObject<List<int[]>>(data);
-
-            return jsonData.Select(element => new Point3d { X = element[0], Y = element[1], Z = element[2] }).ToList();
+            return points.Select(point => new Dictionary<string, Dictionary<string, double>>
+            {
+                {
+                    GenerateRandomString(), new Dictionary<string, double>
+                    {
+                        {"x", point.X},
+                        {"y", point.Z},
+                        {"z", point.Y},
+                    }
+                }
+            }).ToList();
         }
-        
+
+        public static string GenerateRandomString(int length = 10)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+            var random = new Random();
+            var randomString = new string(Enumerable.Repeat(chars, length)
+                .Select(s => s[random.Next(s.Length)]).ToArray());
+            return randomString;
+        }
+
+
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
         /// Icons need to be 24x24 pixels.
@@ -111,10 +114,8 @@ namespace FirebaseWFC
         /// It is vital this Guid doesn't change otherwise old ghx files 
         /// that use the old ID will partially fail during loading.
         /// </summary>
-        public override Guid ComponentGuid => new Guid("cbaf115b-22cd-474a-880c-8a12f6baa19b");
+        public override Guid ComponentGuid => new Guid("4aad354d-7498-461d-a90f-826d40a34d37");
 
         private IFirebaseClient _client = null;
-        private List<Point3d> _slots;
-        //private EventStreamResponse FirebaseStream;
     }
 }

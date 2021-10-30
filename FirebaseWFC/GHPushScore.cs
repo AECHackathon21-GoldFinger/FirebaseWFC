@@ -1,25 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using FireSharp.Interfaces;
-using FireSharp.Response;
 using Grasshopper.Kernel;
-using Rhino.Geometry;
 
 namespace FirebaseWFC
 {
-    public class GHFirebasePush : GH_Component
+    public class GHPushScore : GH_Component
     {
-        /// <summary>
-        /// Each implementation of GH_Component must provide a public 
-        /// constructor without any arguments.
-        /// Category represents the Tab in which the component will appear, 
-        /// Subcategory the panel. If you use non-existing tab or panel names, 
-        /// new tabs/panels will automatically be created.
-        /// </summary>
-        public GHFirebasePush()
-            : base("Push", "Push",
+        public GHPushScore()
+            : base("Push Score", "Score",
                 "Description",
                 "FirebaseWFC", "Connect")
         {
@@ -32,8 +22,9 @@ namespace FirebaseWFC
         {
             pManager.AddBooleanParameter("Push", "Push", "Firebase Push",
                 GH_ParamAccess.item);
-            pManager.AddPointParameter("Slots", "Slots", "Data", GH_ParamAccess.list);
-            pManager.AddTextParameter("Path", "Path", "Path", GH_ParamAccess.item, "slots");
+            pManager.AddTextParameter("User", "User", "Data", GH_ParamAccess.item);
+            pManager.AddTextParameter("LCA", "LCA", "Data", GH_ParamAccess.item);
+            pManager.AddTextParameter("Cost", "Cost", "Data", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -52,39 +43,41 @@ namespace FirebaseWFC
         protected override async void SolveInstance(IGH_DataAccess DA)
         {
             var push = false;
-            var data = new List<Point3d>();
-            var path = "slots";
-            
+            var user = "";
+            var cost = "";
+            var lca = "";
+            var path = "users";
+
             if (!DA.GetData(0, ref push)) return;
-            if (!DA.GetDataList(1, data)) return;
-            DA.GetData(2, ref path);
+            if (!DA.GetData(1, ref user)) return;
+            DA.GetData(2, ref cost);
+            DA.GetData(3, ref lca);
 
             var config = Environment.GetEnvironmentVariable("firebaseConfig");
 
             _client = Firebase.GetOrCreateClient(_client, config);
-            
+
             if (_client != null && push)
             {
                 try
                 {
-                    var slots = ParsePointsToSlot(data);
-                    var firebaseResponse = await _client.SetAsync(path, slots);
+                    var data = ParseData(lca, cost);
+                    var firebaseResponse = await _client.SetAsync($"{path}/{user}", data);
                     DA.SetData(0, firebaseResponse.Body);
                 }
                 catch (Exception error)
                 {
                     Console.WriteLine(error.Message);
                 }
-
             }
         }
 
-        private static List<int[]> ParsePointsToSlot(List<Point3d> points)
+        private static Dictionary<string, string> ParseData(string lca, string cost)
         {
-            return points.Select(point => new int[] { (int)point.X, (int)point.Y, (int)point.Z }).ToList();
+            return new Dictionary<string, string>{ { "lca", lca }, { "cost", cost } };
         }
-        
-        
+
+
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
         /// Icons need to be 24x24 pixels.
@@ -98,7 +91,7 @@ namespace FirebaseWFC
         /// It is vital this Guid doesn't change otherwise old ghx files 
         /// that use the old ID will partially fail during loading.
         /// </summary>
-        public override Guid ComponentGuid => new Guid("c89fcdfb-6405-4427-bd67-a16f91df00ee");
+        public override Guid ComponentGuid => new Guid("c50e3118-424b-4084-8041-b6a9531f46c3");
 
         private IFirebaseClient _client = null;
     }
